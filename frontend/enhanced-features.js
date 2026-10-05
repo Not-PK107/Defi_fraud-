@@ -151,7 +151,7 @@ class AnalyticsDashboard {
     // Keep only last 50 scans
     EnhancedState.analytics.recentScans = EnhancedState.analytics.recentScans.slice(0, 50);
     
-    if (result.risk_level === 'HIGH') {
+    if (result.risk_level === 'HIGH' || result.risk_level === 'CRITICAL') {
       EnhancedState.analytics.highRiskFound++;
     }
     
@@ -341,6 +341,11 @@ class RealtimeManager {
 
   connect() {
     try {
+      // Only connect WebSocket when served over http/https (not file://)
+      if (!window.location.protocol.startsWith('http')) {
+        console.log('WebSocket skipped: page not served over HTTP');
+        return;
+      }
       // Try to connect to WebSocket server for real-time updates
       const wsUrl = `ws://${window.location.host}/ws`;
       this.ws = new WebSocket(wsUrl);
@@ -370,6 +375,7 @@ class RealtimeManager {
       console.log('WebSocket not available');
     }
   }
+
 
   handleMessage(data) {
     switch (data.type) {
@@ -655,7 +661,7 @@ class BulkAnalysisManager {
   }
 
   displayBulkResults(results, container) {
-    const highRisk = results.filter(r => r.risk_level === 'HIGH').length;
+    const highRisk = results.filter(r => r.risk_level === 'HIGH' || r.risk_level === 'CRITICAL').length;
     const mediumRisk = results.filter(r => r.risk_level === 'MEDIUM').length;
     const lowRisk = results.filter(r => r.risk_level === 'LOW').length;
     const errors = results.filter(r => r.risk_level === 'ERROR').length;
@@ -704,6 +710,7 @@ class BulkAnalysisManager {
 
   getRiskClass(riskLevel) {
     const classes = {
+      'CRITICAL': 'danger',
       'HIGH': 'danger',
       'MEDIUM': 'warning', 
       'LOW': 'success',
@@ -759,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
       analyticsManager.recordScan(data);
       
       // Show notification based on result
-      const type = data.risk_level === 'HIGH' ? 'fraud' : 
+      const type = (data.risk_level === 'HIGH' || data.risk_level === 'CRITICAL') ? 'fraud' : 
                    data.risk_level === 'MEDIUM' ? 'warning' : 'clean';
       const message = `Analysis complete: ${data.risk_level} risk (${data.risk_score.toFixed(1)}/100)`;
       notificationManager.show(message, type, 4000);

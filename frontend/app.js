@@ -418,8 +418,9 @@ function generateAutonomousAnalysis(address) {
  */
 function renderAnalysisResults(data) {
   const score = data.risk_score;
-  const isHigh = data.risk_level === "HIGH";
-  const isMed = data.risk_level === "MEDIUM";
+  const isCritical = data.risk_level === "CRITICAL" || (data.blacklist && data.blacklist.is_blacklisted);
+  const isHigh = isCritical || data.risk_level === "HIGH";
+  const isMed = !isHigh && data.risk_level === "MEDIUM";
 
   // 1. Tachometer Gauge Arc (Stroke Dashoffset Calculation)
   // Circumference = 283 (based on r=45 semicircle arc)
@@ -439,7 +440,13 @@ function renderAnalysisResults(data) {
     DOM.statusSeal.className = `status-seal-stamp ${isHigh ? "danger" : isMed ? "warning" : "success"}`;
   }
   if (DOM.statusSealText) {
-    DOM.statusSealText.textContent = isHigh ? "🚨 HIGH FRAUD THREAT DETECTED" : isMed ? "⚠️ ELEVATED RISK DETECTED" : "🛡️ VERIFIED LEGITIMATE WALLET";
+    DOM.statusSealText.textContent = isCritical
+      ? "🚨 CRITICAL — BLACKLISTED WALLET"
+      : isHigh
+      ? "🚨 HIGH FRAUD THREAT DETECTED"
+      : isMed
+      ? "⚠️ ELEVATED RISK DETECTED"
+      : "🛡️ VERIFIED LEGITIMATE WALLET";
   }
 
   // 3. Wallet Address & Metrics
@@ -451,7 +458,7 @@ function renderAnalysisResults(data) {
   }
   if (DOM.metricRiskLevel) {
     DOM.metricRiskLevel.textContent = data.risk_level;
-    DOM.metricRiskLevel.style.color = isHigh ? "#f87171" : isMed ? "#fbbf24" : "#34d399";
+    DOM.metricRiskLevel.style.color = isCritical ? "#dc2626" : isHigh ? "#f87171" : isMed ? "#fbbf24" : "#34d399";
   }
   if (DOM.metricRecommendation) {
     DOM.metricRecommendation.textContent = data.recommendation;
@@ -459,7 +466,10 @@ function renderAnalysisResults(data) {
 
   // 4. Recommendation Text
   if (DOM.recText) {
-    if (isHigh) {
+    if (isCritical) {
+      const reason = data.blacklist && data.blacklist.reason ? data.blacklist.reason : "Unknown";
+      DOM.recText.textContent = `BLACKLIST ALERT: This wallet is a confirmed bad actor. Reason: ${reason}. All interaction with this address is extremely dangerous. This fraud event has been permanently recorded to the Sepolia blockchain.`;
+    } else if (isHigh) {
       DOM.recText.textContent = "CRITICAL WARNING: This address matches fraudulent heuristics (rapid fund-draining, artificial velocity, lack of ERC-20 activity). Interacting with this address carries substantial risk of asset loss. High-risk verdict permanently recorded to Sepolia testnet.";
     } else if (isMed) {
       DOM.recText.textContent = "ADVISORY: This address exhibits irregular velocity or abnormal token concentration. Exercise thorough due diligence and verify counterparty identity before authorizing contract approvals.";
@@ -558,6 +568,31 @@ function initLedgerTabs() {
   });
 }
 
+function formatFeatureValue(val) {
+  if (typeof val !== "number") return val;
+  if (val === 0) return "0";
+  
+  const absVal = Math.abs(val);
+  
+  if (absVal > 1e15) {
+    return val.toExponential(4);
+  }
+  
+  if (absVal >= 1e9) {
+    return (val / 1e9).toFixed(2) + "B";
+  }
+  
+  if (absVal >= 1e6) {
+    return (val / 1e6).toFixed(2) + "M";
+  }
+  
+  if (Number.isInteger(val)) {
+    return val.toLocaleString();
+  }
+  
+  return val.toFixed(4);
+}
+
 /**
  * Render 39-Feature Grid with Filtering & Search
  */
@@ -593,7 +628,7 @@ function renderLedgerFeatures() {
   entries.forEach((featKey) => {
     const meta = metadata[featKey];
     const val = features[featKey] !== undefined ? features[featKey] : 0.0;
-    const formattedVal = typeof val === "number" ? (Number.isInteger(val) ? val.toLocaleString() : val.toFixed(4)) : val;
+    const formattedVal = formatFeatureValue(val);
 
     const card = document.createElement("div");
     card.className = "feature-item-card";

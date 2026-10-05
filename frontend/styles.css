@@ -1119,6 +1119,7 @@ body::before {
   align-items: baseline;
   justify-content: space-between;
   margin-top: 0.35rem;
+  min-width: 0;
 }
 
 .feat-val {
@@ -1126,6 +1127,9 @@ body::before {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feat-unit {
