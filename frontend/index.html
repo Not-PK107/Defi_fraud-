@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aegis | DeFi Fraud Detection AI & On-Chain Audit Logger</title>
+  <meta name="description" content="AI-powered fraud detection for Ethereum wallets using XGBoost ML, SHAP explainability, and blockchain logging on Sepolia testnet.">
+  <meta name="keywords" content="DeFi, fraud detection, Ethereum, wallet analysis, blockchain, XGBoost, machine learning, SHAP, Web3">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="enhanced-styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#d4af37">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Aegis DeFi">
+</head>
+<body>
+
+  <!-- ========================================================================
+       CLASSIC HEADER & NAVIGATION
+       ======================================================================== -->
+  <header class="header-nav">
+    <div class="container nav-wrapper">
+      <a href="#" class="brand-crest">
+        <div class="crest-icon-box">⚜</div>
+        <div class="brand-text">
+          <h1>Aegis DeFi AI</h1>
+          <span>On-Chain Fraud Sentinel</span>
+        </div>
+      </a>
+
+      <div class="nav-meta">
+        <div class="network-badge">
+          <span class="pulse-dot" id="apiStatusDot"></span>
+          <span>Sepolia Testnet & AI Engine</span>
+        </div>
+
+        <div class="nav-actions">
+          <button class="btn-icon" id="compareBtn" title="Compare Wallets Side-by-Side">⚖</button>
+          <button class="btn-icon" id="themeToggleBtn" title="Toggle Theme">☀️</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       HERO & WALLET SCANNER
+       ======================================================================== -->
+  <main class="container">
+    <section class="hero-section">
+      <div class="hero-subtitle">Automated Forensic Intelligence & Smart Contract Verification</div>
+      <h2 class="hero-title">DeFi Wallet Risk Assessment</h2>
+      <p class="hero-desc">
+        Evaluate Ethereum addresses against 39 engineered blockchain behavioral features powered by XGBoost, explained via SHAP, and permanently logged to the Sepolia blockchain.
+      </p>
+
+      <div class="search-card">
+        <div class="search-input-group">
+          <div class="search-input-wrapper">
+            <span class="input-icon">⬡</span>
+            <input 
+              type="text" 
+              id="walletInput" 
+              class="wallet-input" 
+              placeholder="Enter Ethereum wallet address (0x...)" 
+              spellcheck="false"
+              autocomplete="off"
+            >
+            <button class="clear-input-btn" id="clearInputBtn" title="Clear input">✕</button>
+          </div>
+          <button class="btn-classic-primary" id="analyzeBtn">
+            <span>Scan Wallet</span>
+            <span>➔</span>
+          </button>
+        </div>
+
+        <div class="sample-wallets-bar">
+          <span class="sample-label">Curated Profiles:</span>
+          <div id="sampleChipsContainer" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+        </div>
+      </div>
+
+      <!-- Multi-Stage Scanning Progress Box -->
+      <div class="scan-progress-box" id="scanProgressBox">
+        <div class="scan-progress-header">
+          <h3>
+            <span class="spinner-classic"></span>
+            <span>Running Multi-Stage AI Forensic Analysis...</span>
+          </h3>
+          <span class="card-badge" style="color:var(--gold-400)">In Progress</span>
+        </div>
+
+        <div class="progress-steps-list">
+          <div class="step-item">
+            <span class="step-number">01</span>
+            <span>Etherscan Connection</span>
+          </div>
+          <div class="step-item">
+            <span class="step-number">02</span>
+            <span>Tx & ERC20 Ledger</span>
+          </div>
+          <div class="step-item">
+            <span class="step-number">03</span>
+            <span>39 Feature Engine</span>
+          </div>
+          <div class="step-item">
+            <span class="step-number">04</span>
+            <span>XGBoost Inference</span>
+          </div>
+          <div class="step-item">
+            <span class="step-number">05</span>
+            <span>SHAP & Sepolia Log</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================
+         RESULTS DASHBOARD (VERDICT, SHAP, 39 FEATURES, ON-CHAIN)
+         ======================================================================== -->
+    <section class="results-container" id="resultsContainer">
+      
+      <!-- Executive Verdict & Tachometer Gauge -->
+      <div class="verdict-grid">
+        <!-- Left: Tachometer Risk Gauge Card -->
+        <div class="card-classic">
+          <div class="card-header-classic">
+            <h2><span>⚖</span> AI Forensic Verdict</h2>
+            <span class="card-badge">XGBoost v1.4 Engine</span>
+          </div>
+
+          <div class="verdict-body">
+            <!-- Luxury Circular Tachometer Meter -->
+            <div class="gauge-wrapper">
+              <svg class="gauge-svg" viewBox="0 0 100 60">
+                <!-- Background Arc -->
+                <path class="gauge-bg-arc" d="M 10 50 A 40 40 0 0 1 90 50"></path>
+                <!-- Dynamic Colored Meter Arc -->
+                <path class="gauge-meter-arc" id="gaugeMeterArc" d="M 10 50 A 40 40 0 0 1 90 50"></path>
+              </svg>
+              <div class="gauge-center-content">
+                <div class="gauge-score-value" id="gaugeScoreValue">0.0</div>
+                <div class="gauge-score-label">Risk Index / 100</div>
+              </div>
+            </div>
+
+            <!-- Verdict Details & Seals -->
+            <div class="verdict-details">
+              <div class="status-seal-stamp" id="statusSeal">
+                <span id="statusSealText">VERIFYING...</span>
+              </div>
+
+              <div class="wallet-address-display">
+                <span id="displayWalletAddr" style="overflow:hidden; text-overflow:ellipsis;">0x0000...</span>
+                <button class="copy-mini-btn" id="copyAddrBtn" title="Copy Wallet Address">📋 Copy</button>
+              </div>
+
+              <div class="verdict-metrics-row">
+                <div class="metric-pill">
+                  <span class="label">Fraud Probability</span>
+                  <span class="val" id="metricProb">0.00%</span>
+                </div>
+                <div class="metric-pill">
+                  <span class="label">Risk Severity</span>
+                  <span class="val" id="metricRiskLevel">--</span>
+                </div>
+                <div class="metric-pill">
+                  <span class="label">Action Status</span>
+                  <span class="val" id="metricRecommendation" style="font-size:0.82rem;">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Action & On-Chain Sepolia Status Card -->
+        <div class="card-classic">
+          <div class="card-header-classic">
+            <h3><span>🛡️</span> Security Action & Ledger</h3>
+            <span class="card-badge">Sepolia Log</span>
+          </div>
+
+          <div class="action-card-content">
+            <div class="recommendation-box">
+              <div class="rec-title">
+                <span>✦</span> Actionable Recommendation
+              </div>
+              <p class="rec-text" id="recText">
+                Analyzing address behavior against high-dimensional DeFi threat models...
+              </p>
+            </div>
+
+            <div class="blockchain-status-box">
+              <div class="chain-header">
+                <span>Sepolia Contract Status</span>
+                <span id="chainStatusBadge">● Checking...</span>
+              </div>
+              <div class="chain-detail-row">
+                <span>Transaction Hash:</span>
+                <span id="chainTxHash">--</span>
+              </div>
+              <div class="chain-detail-row">
+                <span>Block Number:</span>
+                <span id="chainBlockNum">--</span>
+              </div>
+            </div>
+
+            <div class="action-buttons-group">
+              <button class="btn-classic-outline" id="exportCertBtn">
+                <span>📜</span> Export Audit Certificate
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explainable AI (SHAP) Reasoning Engine -->
+      <section class="shap-section">
+        <div class="card-classic">
+          <div class="card-header-classic">
+            <h2><span>🔬</span> Explainable AI (SHAP Reasoning Engine)</h2>
+            <span class="card-badge">Top Risk Contributors</span>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.2rem;">
+            SHAP (SHapley Additive exPlanations) breaks down the exact mathematical influence of each feature on the model's final fraud score.
+          </p>
+          <div class="shap-grid" id="shapGrid"></div>
+        </div>
+      </section>
+
+      <!-- 39-Feature Forensic Ledger (Tabbed) -->
+      <section class="ledger-section">
+        <div class="card-classic">
+          <div class="card-header-classic">
+            <h2><span>📖</span> 39-Feature Forensic Ledger</h2>
+            <span class="card-badge">Engineered Feature Set</span>
+          </div>
+
+          <div class="ledger-controls">
+            <div class="ledger-tabs" id="ledgerTabsContainer"></div>
+            <div class="ledger-search-box">
+              <span class="ledger-search-icon">🔍</span>
+              <input type="text" id="ledgerSearchInput" class="ledger-search-input" placeholder="Search feature metrics...">
+            </div>
+          </div>
+
+          <div class="ledger-grid" id="ledgerGrid"></div>
+        </div>
+      </section>
+
+      <!-- Interactive "What-If" Simulation Sandbox -->
+      <section class="sandbox-section">
+        <div class="sandbox-card">
+          <div class="card-header-classic">
+            <h2><span>🧪</span> "What-If" Scenario Simulation Sandbox</h2>
+            <span class="card-badge">Interactive Heuristic Lab</span>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
+            Adjust key behavioral metrics to simulate how variations in transaction frequency, lifespan, and token interactions alter the fraud risk score in real time.
+          </p>
+
+          <div class="sandbox-grid">
+            <!-- Controls Panel -->
+            <div class="sandbox-controls-panel">
+              <div class="slider-group">
+                <div class="slider-header">
+                  <span class="slider-label">Sent Transactions</span>
+                  <span class="slider-value-badge" id="simSentTxsVal">150</span>
+                </div>
+                <input type="range" id="simSentTxs" class="classic-slider" min="0" max="2000" step="5" value="150">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-header">
+                  <span class="slider-label">Wallet Lifespan (Elapsed Mins)</span>
+                  <span class="slider-value-badge" id="simLifespanVal">340 mins</span>
+                </div>
+                <input type="range" id="simLifespan" class="classic-slider" min="10" max="100000" step="50" value="340">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-header">
+                  <span class="slider-label">Avg Interval Between Sent Txs</span>
+                  <span class="slider-value-badge" id="simIntervalVal">2.5 mins</span>
+                </div>
+                <input type="range" id="simInterval" class="classic-slider" min="0.5" max="180" step="0.5" value="2.5">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-header">
+                  <span class="slider-label">Current ETH Balance</span>
+                  <span class="slider-value-badge" id="simBalanceVal">1.08 ETH</span>
+                </div>
+                <input type="range" id="simBalance" class="classic-slider" min="0" max="500" step="0.5" value="1.08">
+              </div>
+
+              <div class="slider-group" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div class="slider-label">Zero ERC-20 Token History (Burner Flag)</div>
+                  <div style="font-size:0.7rem; color:var(--text-muted);">High indicator of disposable phishing wallets</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <span class="slider-value-badge" id="simErc20MissingVal">1 (Zero Tokens)</span>
+                  <input type="checkbox" id="simErc20Missing" checked style="width:18px; height:18px; accent-color:var(--gold-400); cursor:pointer;">
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Estimated Output -->
+            <div class="sandbox-preview-panel">
+              <span style="font-family:var(--font-serif-title); font-size:0.8rem; letter-spacing:0.08em; color:var(--gold-400); text-transform:uppercase;">
+                Simulated ML Risk Index
+              </span>
+              <div class="sim-score-box">
+                <div class="sim-score-num" id="simScoreDisplay">98.5</div>
+              </div>
+              <div class="status-seal-stamp danger" id="simBadgeDisplay" style="margin-bottom:0.8rem;">
+                PREDICTED: FRAUD
+              </div>
+              <div style="font-size:0.82rem; color:var(--text-secondary);">
+                Recommended Action: <strong id="simRecDisplay" style="color:var(--gold-300);">AVOID TRANSACTION</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sepolia Smart Contract On-Chain Registry Table -->
+      <section class="blockchain-section">
+        <div class="card-classic">
+          <div class="card-header-classic">
+            <h2><span>⛓</span> On-Chain Sepolia Threat Registry</h2>
+            <span class="card-badge">Smart Contract: FraudLogger.sol</span>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.2rem;">
+            Immutable on-chain repository of wallets flagged with High Risk (>70 Score) submitted directly to Ethereum Sepolia.
+          </p>
+
+          <div class="onchain-table-card">
+            <table class="classic-table">
+              <thead>
+                <tr>
+                  <th>Wallet Address</th>
+                  <th>Risk Score</th>
+                  <th>Classification Category</th>
+                  <th>Date Recorded</th>
+                  <th>Sepolia Tx Hash</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody id="onChainTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <!-- ========================================================================
+       MODAL: FORMAL AUDIT CERTIFICATE
+       ======================================================================== -->
+  <div class="modal-backdrop" id="certModal">
+    <div class="modal-dialog">
+      <button class="modal-close-btn" id="closeCertModalBtn">✕</button>
+      <div class="certificate-frame">
+        <div class="cert-emblem">⚜</div>
+        <div class="cert-title">Formal DeFi Security Audit Certificate</div>
+        <div class="cert-sub">Aegis On-Chain Threat Intelligence Protocol</div>
+
+        <div style="text-align:left; font-size:0.85rem; line-height:1.8; margin-bottom:1.5rem; background:rgba(0,0,0,0.25); padding:1.25rem; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+          <div><strong>Audited Address:</strong> <code id="certWalletDisplay" style="word-break:break-all;">0x...</code></div>
+          <div><strong>AI Verdict Risk Score:</strong> <span id="certScoreDisplay">--</span></div>
+          <div><strong>Recommended Action:</strong> <span id="certRecDisplay">--</span></div>
+          <div><strong>Audit Timestamp:</strong> <span id="certDateDisplay">--</span></div>
+          <div><strong>Sepolia On-Chain Record:</strong> <code id="certTxDisplay" style="word-break:break-all;">--</code></div>
+        </div>
+
+        <button class="btn-classic-primary" id="printCertBtn" style="margin:0 auto;">
+          <span>🖨 Print / Save as PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: SIDE-BY-SIDE WALLET COMPARISON
+       ======================================================================== -->
+  <div class="modal-backdrop" id="compareModal">
+    <div class="modal-dialog" style="max-width:800px;">
+      <button class="modal-close-btn" id="closeCompareModalBtn">✕</button>
+      <div class="card-header-classic">
+        <h2><span>⚖</span> Side-by-Side Forensic Comparison</h2>
+        <span class="card-badge">Fraud vs. Verified Clean</span>
+      </div>
+      <div id="compareContent" style="margin-top:1.25rem;"></div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       CLASSIC FOOTER
+       ======================================================================== -->
+  <footer class="footer-classic">
+    <div class="container footer-content">
+      <div class="footer-crest">⚜ Aegis DeFi Fraud Detection AI & On-Chain Sentinel</div>
+      <p>A full-stack monorepo combining XGBoost Machine Learning, SHAP Explainability, and Ethereum Sepolia Smart Contract Logging.</p>
+      <p style="font-size:0.75rem; color:var(--text-muted);">
+        Smart Contract: <code>FraudLogger.sol</code> • Model: <code>fraud_model.pkl</code> (39 Features) • Monorepo Architecture
+      </p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="sample_data.js"></script>
+  <script src="app.js"></script>
+  <script src="enhanced-features.js"></script>
+</body>
+</html>
