@@ -4,10 +4,11 @@ analyze_and_log.py
 Full DeFi Fraud Detection Pipeline:
 
   Wallet Address
+      → Blacklist check (OFAC sanctions + known hackers)
       → Etherscan API (fetch live transactions)
-      → Compute 39 features
+      → Compute 50 features
       → XGBoost ML model (predict fraud risk)
-      → If HIGH risk: log permanently to Sepolia blockchain
+      → If HIGH/CRITICAL risk: log permanently to Sepolia blockchain
       → Print full report
 
 Usage
@@ -37,23 +38,25 @@ from backend.wallet_fetcher import (
     ETHERSCAN_API_KEY,
     explain_with_shap,
 )
+from backend.blacklist_checker import check_blacklist
 from backend.blockchain_logger import log_fraud_on_chain
 from backend.predictor import predict_fraud_risk
 import pandas as pd
 import joblib
 
 
-# ── Risk threshold for on-chain logging ────────────────────────────────────
+# -- Risk threshold for on-chain logging ------------------------------------
 LOG_THRESHOLD = 70  # Only log wallets with risk score > 70
 
 
 def analyze_and_log(address: str) -> dict:
     """
     Full pipeline:
+      0. Check blacklist (OFAC sanctions + known hackers)
       1. Fetch live Etherscan data
-      2. Compute 39 model features
+      2. Compute 50 model features
       3. Run XGBoost fraud prediction
-      4. If HIGH risk → log to Sepolia blockchain
+      4. If HIGH/CRITICAL risk -> log to Sepolia blockchain
       5. Return full assessment dict
     """
     if not ETHERSCAN_API_KEY:
@@ -62,9 +65,17 @@ def analyze_and_log(address: str) -> dict:
             "Get a free key at https://etherscan.io/myapikey"
         )
 
-    # ── Step 1: Fetch blockchain data ───────────────────────────────────────
+    # -- Step 0: Blacklist check (instant, no API needed) -------------------
     print(f"\nAnalyzing wallet: {address}")
     print("-" * 60)
+    print("  [0/4] Checking blacklist...")
+    blacklist_result = check_blacklist(address)
+    if blacklist_result["is_blacklisted"]:
+        print(f"        !! BLACKLIST HIT: {blacklist_result['reason']}")
+    else:
+        print("        Clean -- not found in any blacklist")
+
+    # -- Step 1: Fetch blockchain data --------------------------------------
     print("  [1/4] Fetching normal transactions...")
     normal_txs = fetch_normal_transactions(address)
     print(f"        Found {len(normal_txs)} normal transactions")
@@ -77,13 +88,23 @@ def analyze_and_log(address: str) -> dict:
     balance = fetch_eth_balance(address)
     print(f"        Balance: {balance:.6f} ETH")
 
-    # ── Step 2 & 3: Compute features + predict ──────────────────────────────
+    # -- Step 2 & 3: Compute features + predict ----------------------------
     print("  [4/4] Computing features & running ML prediction...")
     features = compute_features(address, normal_txs, erc20_txs, balance)
     result = predict_fraud_risk(features)
     result["features_used"] = features
 
-    # ---- SHAP explainability ----
+    # -- Override result if wallet is blacklisted ---------------------------
+    if blacklist_result["is_blacklisted"]:
+        result["prediction"] = "FRAUD"
+        result["risk_score"] = 100.0
+        result["fraud_probability"] = 1.0
+        result["risk_level"] = "CRITICAL"
+        result["recommendation"] = "AVOID TRANSACTION"
+
+    result["blacklist"] = blacklist_result
+
+    # -- SHAP explainability -----------------------------------------------
     try:
         _MODEL_DIR = _PROJECT_ROOT / "notebooks" / "models"
         feature_columns = joblib.load(_MODEL_DIR / "feature_columns.pkl")
@@ -99,7 +120,7 @@ def analyze_and_log(address: str) -> dict:
         result["shap_explanation"] = [{"feature": "SHAP error", "display": str(e),
                                        "direction": "", "shap_value": 0.0}]
 
-    # ── Step 4: Log to blockchain if HIGH risk ──────────────────────────────
+    # -- Step 4: Log to blockchain if HIGH/CRITICAL risk -------------------
     risk_score = result["risk_score"]
     risk_level = result["risk_level"]
 
@@ -148,9 +169,9 @@ def _print_full_report(address: str, result: dict) -> None:
         print(sep)
         print()
     elif chain_info and "error" in chain_info:
-        print(f"\n  ⚠  Blockchain logging error: {chain_info['error']}\n")
+        print(f"\n  [WARNING] Blockchain logging error: {chain_info['error']}\n")
     else:
-        print("\n  ℹ  This wallet was NOT logged to blockchain (risk below threshold).\n")
+        print("\n  [INFO] This wallet was NOT logged to blockchain (risk below threshold).\n")
 
 
 if __name__ == "__main__":

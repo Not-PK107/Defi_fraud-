@@ -41,6 +41,8 @@ _BACKEND_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _BACKEND_DIR.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
+from backend.blacklist_checker import check_blacklist
+
 # ---- Load environment variables (.env file) ----
 load_dotenv(_PROJECT_ROOT / ".env")
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
@@ -268,6 +270,7 @@ def compute_features(address: str,
         # ERC20 value stats
         erc20_recv_vals_nz = [v for v in erc20_recv_vals if v > 0]
         erc20_sent_vals_nz = [v for v in erc20_sent_vals if v > 0]
+        erc20_sent_contract_vals_nz = [v for v in erc20_sent_contract_vals if v > 0]
 
         erc20_min_val_rec  = _safe_min(erc20_recv_vals_nz)
         erc20_max_val_rec  = _safe_max(erc20_recv_vals_nz)
@@ -275,6 +278,15 @@ def compute_features(address: str,
         erc20_min_val_sent = _safe_min(erc20_sent_vals_nz)
         erc20_max_val_sent = _safe_max(erc20_sent_vals_nz)
         erc20_avg_val_sent = _safe_mean(erc20_sent_vals_nz)
+        erc20_min_val_sent_contract = _safe_min(erc20_sent_contract_vals_nz)
+        erc20_max_val_sent_contract = _safe_max(erc20_sent_contract_vals_nz)
+        erc20_avg_val_sent_contract = _safe_mean(erc20_sent_contract_vals_nz)
+
+        # ERC20 average time between transactions (in minutes)
+        erc20_avg_time_sent      = _avg_min_between(erc20_sent)
+        erc20_avg_time_recv      = _avg_min_between(erc20_recv)
+        erc20_avg_time_recv2     = _avg_min_between(erc20_recv)  # mirror of recv
+        erc20_avg_time_contract  = _avg_min_between(erc20_sent_to_contract)
 
         # Unique token names
         erc20_uniq_sent_token = len({tx.get("tokenSymbol", "") for tx in erc20_sent})
@@ -282,7 +294,6 @@ def compute_features(address: str,
 
     else:
         # No ERC20 activity — use NaN so the imputer fills with training medians
-        # (This exactly mirrors how the training dataset handled these wallets)
         erc20_total = np.nan
         erc20_total_recv = np.nan
         erc20_total_sent = np.nan
@@ -297,11 +308,18 @@ def compute_features(address: str,
         erc20_min_val_sent = np.nan
         erc20_max_val_sent = np.nan
         erc20_avg_val_sent = np.nan
+        erc20_min_val_sent_contract = np.nan
+        erc20_max_val_sent_contract = np.nan
+        erc20_avg_val_sent_contract = np.nan
+        erc20_avg_time_sent = np.nan
+        erc20_avg_time_recv = np.nan
+        erc20_avg_time_recv2 = np.nan
+        erc20_avg_time_contract = np.nan
         erc20_uniq_sent_token = np.nan
         erc20_uniq_recv_token = np.nan
 
     # ------------------------------------------------------------------ #
-    # Assemble the 39-feature dict in the exact training column order
+    # Assemble the 50-feature dict (39 original + 11 new)
     # ------------------------------------------------------------------ #
     return {
         "Avg min between sent tnx":                          avg_min_sent,
@@ -334,15 +352,28 @@ def compute_features(address: str,
         "ERC20 uniq rec addr":                               erc20_uniq_recv_addr,
         "ERC20 uniq sent addr.1":                            erc20_uniq_sent_addr1,
         "ERC20 uniq rec contract addr":                      erc20_uniq_recv_contract_addr,
+        "ERC20 avg time between sent tnx":                   erc20_avg_time_sent,
+        "ERC20 avg time between rec tnx":                    erc20_avg_time_recv,
+        "ERC20 avg time between rec 2 tnx":                  erc20_avg_time_recv2,
+        "ERC20 avg time between contract tnx":               erc20_avg_time_contract,
         "ERC20 min val rec":                                 erc20_min_val_rec,
         "ERC20 max val rec":                                 erc20_max_val_rec,
         "ERC20 avg val rec":                                 erc20_avg_val_rec,
         "ERC20 min val sent":                                erc20_min_val_sent,
         "ERC20 max val sent":                                erc20_max_val_sent,
         "ERC20 avg val sent":                                erc20_avg_val_sent,
+        "ERC20 min val sent contract":                       erc20_min_val_sent_contract,
+        "ERC20 max val sent contract":                       erc20_max_val_sent_contract,
+        "ERC20 avg val sent contract":                       erc20_avg_val_sent_contract,
         "ERC20 uniq sent token name":                        erc20_uniq_sent_token,
         "ERC20 uniq rec token name":                         erc20_uniq_recv_token,
         "ERC20_data_missing":                                erc20_missing,
+        # --- 5 new engineered features ---
+        "sent_recv_ratio":    sent_count / (recv_count + 1),
+        "eth_velocity":       total_eth_sent / (total_eth_recv + 1e-9),
+        "balance_retention":  balance / (total_eth_recv + 1e-9),
+        "recv_concentration": unique_recv_from / (recv_count + 1),
+        "erc20_engagement":   (erc20_total if not np.isnan(erc20_total) else 0) / (total_txs + 1),
     }
 
 
@@ -434,11 +465,24 @@ def analyze_wallet(address: str) -> dict:
     print(f"        Balance: {balance:.6f} ETH")
 
     print()
+    print("Checking blacklist...")
+    blacklist_result = check_blacklist(address)
+
     print("Computing features...")
     features = compute_features(address, normal_txs, erc20_txs, balance)
 
     print("Running ML prediction...")
     result = predict_fraud_risk(features)
+
+    # ---- Override result if wallet is blacklisted (takes priority over ML) ---
+    if blacklist_result["is_blacklisted"]:
+        result["prediction"] = "FRAUD"
+        result["risk_score"] = 100.0
+        result["fraud_probability"] = 1.0
+        result["risk_level"] = "CRITICAL"
+        result["recommendation"] = "AVOID TRANSACTION"
+
+    result["blacklist"] = blacklist_result
 
     # ---- SHAP explainability ------------------------------------------------
     print("Running SHAP explanation...")
@@ -512,6 +556,7 @@ def _print_result(address: str, result: dict) -> None:
     """Print the full fraud assessment including SHAP explanation."""
     features = result.pop("features_used", {})
     shap_explanation = result.pop("shap_explanation", [])
+    blacklist_info = result.pop("blacklist", None)
     result.pop("_processed_input", None)
 
     sep = "=" * 60
@@ -521,6 +566,13 @@ def _print_result(address: str, result: dict) -> None:
     print(sep)
     print(f"  Wallet   : {address}")
     print(sep)
+
+    # ---- Blacklist warning (shown prominently before the result) ----------
+    if blacklist_info and blacklist_info.get("is_blacklisted"):
+        print(f"  !! BLACKLIST ALERT !!")
+        print(f"  Source    : {blacklist_info['source']}")
+        print(f"  Reason    : {blacklist_info['reason']}")
+        print(sep)
 
     label_icon = "FRAUD" if result["prediction"] == "FRAUD" else "LEGITIMATE"
     print(f"  Result        : {label_icon}")
