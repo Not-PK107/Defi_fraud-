@@ -148,9 +148,9 @@ def _print_full_report(address: str, result: dict) -> None:
         print(sep)
         print()
     elif chain_info and "error" in chain_info:
-        print(f"\n  ⚠  Blockchain logging error: {chain_info['error']}\n")
+        print(f"\n  [!] Blockchain logging error: {chain_info['error']}\n")
     else:
-        print("\n  ℹ  This wallet was NOT logged to blockchain (risk below threshold).\n")
+        print("\n  [INFO] This wallet was NOT logged to blockchain (risk below threshold).\n")
 
 
 if __name__ == "__main__":
